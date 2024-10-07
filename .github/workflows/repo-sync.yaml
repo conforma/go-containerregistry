@@ -13,8 +13,13 @@ jobs:
   repo-sync:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/create-github-app-token@5d869da34e18e7287c1daad50e0b8ea0f506ce69 # v1.11.0
+        id: generate-token
+        with:
+          app-id: ${{ vars.EC_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.EC_AUTOMATION_KEY }}
+
       - run: gh repo sync $REPO
         env:
           REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ secrets.EC_AUTOMATION_KEY }}
-
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
