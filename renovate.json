@@ -1,3 +1,8 @@
+// Despite this configuration file, Renovate is actually ignoring this repository 
+// because it detects it as a fork.
+//
+// Leaving it disabled is an explicit decision by our team, since we have some CI
+// that brings dependency bumps from upstream into our fork.
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
