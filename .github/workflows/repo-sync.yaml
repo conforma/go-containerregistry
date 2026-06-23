@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: repo-sync
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -95,6 +95,12 @@ jobs:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           CONFLICTS=$(cat /tmp/conflicts.txt 2>/dev/null || echo "Could not determine conflicting files.")
+
+          EXISTING=$(gh issue list --state open --search "Upstream sync: manual merge needed" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Open sync issue already exists: #$EXISTING — skipping creation."
+            exit 0
+          fi
 
           gh issue create \
             --title "Upstream sync: manual merge needed ($(date +%Y-%m-%d))" \
