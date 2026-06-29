@@ -75,15 +75,23 @@ jobs:
       - name: Open PR (clean merge)
         if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.conflict == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ steps.merge.outputs.branch }}
         run: |
-          PR_URL=$(gh pr create \
-            --title "chore: sync with upstream google/go-containerregistry" \
-            --body "Automated weekly sync from [google/go-containerregistry](https://github.com/google/go-containerregistry).
+          # gh pr create uses GraphQL which is blocked on forked repos.
+          # Use the REST API directly instead.
+          PR_URL=$(gh api "repos/${REPO}/pulls" \
+            -X POST \
+            -f title="chore: sync with upstream google/go-containerregistry" \
+            -f head="${BRANCH}" \
+            -f base="main" \
+            -f body="Automated weekly sync from [google/go-containerregistry](https://github.com/google/go-containerregistry).
 
           Merge completed cleanly — no conflicts detected." \
-            --head "${{ steps.merge.outputs.branch }}" \
-            --base main)
+            --jq '.html_url')
+
+          echo "Created PR: $PR_URL"
 
           gh pr merge "$PR_URL" --auto --merge --delete-branch \
             || echo "::warning::Auto-merge could not be enabled. Merge the PR manually."
@@ -91,7 +99,7 @@ jobs:
       - name: Create conflict issue
         if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.conflict == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           CONFLICTS=$(cat /tmp/conflicts.txt 2>/dev/null || echo "Could not determine conflicting files.")
 
