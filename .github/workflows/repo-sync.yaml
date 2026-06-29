@@ -75,7 +75,7 @@ jobs:
       - name: Open PR (clean merge)
         if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.conflict == 'false'
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           PR_URL=$(gh pr create \
             --title "chore: sync with upstream google/go-containerregistry" \
@@ -91,7 +91,7 @@ jobs:
       - name: Create conflict issue
         if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.conflict == 'true'
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           CONFLICTS=$(cat /tmp/conflicts.txt 2>/dev/null || echo "Could not determine conflicting files.")
 
