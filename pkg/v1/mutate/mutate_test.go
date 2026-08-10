@@ -105,6 +105,63 @@ func TestExtractOverwrittenFile(t *testing.T) {
 	}
 }
 
+func TestExtractOpaqueWhiteout(t *testing.T) {
+	mkLayer := func(files map[string][]byte, opaqueDirs ...string) v1.Layer {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for name, body := range files {
+			if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body))}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := tw.Write(body); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, d := range opaqueDirs {
+			if err := tw.WriteHeader(&tar.Header{Name: d + "/.wh..wh..opq", Mode: 0o644}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := tw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		b := buf.Bytes()
+		l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(b)), nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+
+	base := mkLayer(map[string][]byte{"d/a.txt": []byte("a"), "d/b.txt": []byte("b")})
+	upper := mkLayer(map[string][]byte{"d/c.txt": []byte("c")}, "d")
+	img, err := mutate.AppendLayers(empty.Image, base, upper)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := map[string]bool{}
+	tr := tar.NewReader(mutate.Extract(img))
+	for {
+		h, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		got[h.Name] = true
+	}
+	if !got["d/c.txt"] {
+		t.Error("d/c.txt (upper layer, under opaque dir) should be present")
+	}
+	if got["d/a.txt"] || got["d/b.txt"] {
+		t.Error("opaque dir must hide lower-layer files d/a.txt and d/b.txt")
+	}
+}
+
 func TestExtractClosesLayerBeforeOpeningNext(t *testing.T) {
 	tokens := make(chan struct{}, 4)
 	layers := make([]v1.Layer, cap(tokens)+1)
@@ -758,10 +815,14 @@ func TestExtractSymlinkFiltering(t *testing.T) {
 		{name: "usr/local/bin/ld.so", typeflag: tar.TypeSymlink, linkname: "../lib/ld-linux.so.2"},
 		// Safe relative symlink: var/lock -> ../run/lock (tailscale/glibc pattern).
 		{name: "usr/local/lib/containers/app/var/lock", typeflag: tar.TypeSymlink, linkname: "../run/lock"},
+		// Safe relative symlink using Windows separators.
+		{name: "app/bin/win-rel", typeflag: tar.TypeSymlink, linkname: `..\lib\tool`},
 		// Absolute target: preserved (see #2238 for ongoing discussion).
 		{name: "usr/local/bin/abs-link", typeflag: tar.TypeSymlink, linkname: "/etc/passwd"},
 		// Unsafe: relative target resolves outside rootfs.
 		{name: "etc/foo", typeflag: tar.TypeSymlink, linkname: "../../../tmp/evil"},
+		// Unsafe with Windows separators: resolves outside rootfs.
+		{name: "etc/win-escape", typeflag: tar.TypeSymlink, linkname: `..\..\tmp\evil`},
 	}
 	for _, e := range entries {
 		if err := tw.WriteHeader(&tar.Header{
@@ -801,16 +862,49 @@ func TestExtractSymlinkFiltering(t *testing.T) {
 	}
 
 	// These symlinks must be preserved: safe relative ones and absolute ones.
-	for _, name := range []string{"usr/local/bin/ld.so", "usr/local/lib/containers/app/var/lock", "usr/local/bin/abs-link"} {
+	for _, name := range []string{"usr/local/bin/ld.so", "usr/local/lib/containers/app/var/lock", "app/bin/win-rel", "usr/local/bin/abs-link"} {
 		if _, ok := extracted[name]; !ok {
 			t.Errorf("symlink %q was incorrectly dropped", name)
 		}
 	}
 	// Relative targets that escape the rootfs must be filtered out.
-	for _, name := range []string{"etc/foo"} {
+	for _, name := range []string{"etc/foo", "etc/win-escape"} {
 		if target, ok := extracted[name]; ok {
 			t.Errorf("unsafe symlink %q -> %q was not dropped", name, target)
 		}
+	}
+}
+
+func TestExtractRejectsUnsafeArchivePaths(t *testing.T) {
+	entries := []struct {
+		path    string
+		wantErr bool
+	}{
+		{path: ".", wantErr: false},
+		{path: "tmp/safe", wantErr: false},
+		{path: "../tmp/evil", wantErr: true},
+		{path: `..\..\tmp\evil`, wantErr: true},
+		{path: `\tmp\evil`, wantErr: true},
+		{path: `C:\tmp\evil`, wantErr: true},
+		{path: "C:/tmp/evil", wantErr: true},
+		{path: `C:..\evil`, wantErr: true},
+	}
+	for _, tc := range entries {
+		t.Run(tc.path, func(t *testing.T) {
+			img := imageFromTarBytes(t, makeTarBytes(t, tc.path, "data"))
+
+			_, err := io.Copy(io.Discard, mutate.Extract(img))
+			if tc.wantErr {
+				if err == nil {
+					t.Error("Extract accepted an unsafe archive path")
+				}
+				if !strings.Contains(err.Error(), "unsafe tar path") {
+					t.Errorf("Extract error = %v, want unsafe tar path error", err)
+				}
+			} else if err != nil {
+				t.Errorf("Extract error = %v, want nil", err)
+			}
+		})
 	}
 }
 
@@ -1261,6 +1355,21 @@ func makeTarBytes(t *testing.T, name, body string) []byte {
 		t.Fatalf("tar Close: %v", err)
 	}
 	return buf.Bytes()
+}
+
+func imageFromTarBytes(t *testing.T, tarBytes []byte) v1.Image {
+	t.Helper()
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(tarBytes)), nil
+	})
+	if err != nil {
+		t.Fatalf("LayerFromOpener: %v", err)
+	}
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		t.Fatalf("AppendLayers: %v", err)
+	}
+	return img
 }
 
 // verifyingLayer is a v1.Layer whose Uncompressed stream is wrapped by
