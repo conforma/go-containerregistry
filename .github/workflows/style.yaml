@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: ['main']
 
-env:
-  GOTOOLCHAIN: local
+permissions:
+  contents: read
 
 jobs:
 
@@ -13,32 +13,36 @@ jobs:
     name: check goimports
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          go-version-file: '.go-version'
-      - uses: chainguard-dev/actions/goimports@main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+      - uses: chainguard-dev/actions/goimports@0ffab11a71c1b7bd68ddf94665a8ec88b116223d # v1.6.33
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          go-version-file: '.go-version'
-      - uses: golangci/golangci-lint-action@v9.2.1
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: 'go.mod'
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: v2.11
 
-      - uses: chainguard-dev/actions/trailing-space@main
+      - uses: chainguard-dev/actions/trailing-space@0ffab11a71c1b7bd68ddf94665a8ec88b116223d # v1.6.33
         if: ${{ always() }}
 
-      - uses: chainguard-dev/actions/eof-newline@main
+      - uses: chainguard-dev/actions/eof-newline@0ffab11a71c1b7bd68ddf94665a8ec88b116223d # v1.6.33
         if: ${{ always() }}
 
-      - uses: reviewdog/action-misspell@v1
+      - uses: reviewdog/action-misspell@d6429416b12b09b4e2768307d53bef58d172e962 # v1
         if: ${{ always() }}
         with:
           github_token: ${{ secrets.github_token }}
@@ -46,7 +50,7 @@ jobs:
           locale: "US"
           exclude: ./vendor/*
 
-      - uses: get-woke/woke-action-reviewdog@v0
+      - uses: get-woke/woke-action-reviewdog@d71fd0115146a01c3181439ce714e21a69d75e31 # v0
         if: ${{ always() }}
         with:
           github-token: ${{ secrets.github_token }}
