@@ -5,7 +5,7 @@ module github.com/google/go-containerregistry
 // DO NOT change this version unless support for older Go versions is dropped
 // or the module requires newer Go features. To update the version used for CI
 // and releases, update the ".go-version" file at the root of this repository.
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/docker/cli v29.5.3+incompatible
@@ -47,5 +47,5 @@ require (
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.36.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 )
