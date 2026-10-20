@@ -5,7 +5,7 @@ module github.com/google/go-containerregistry/cmd/krane
 // DO NOT change this version unless support for older Go versions is dropped
 // or the module requires newer Go features. To update the version used for CI
 // and releases, update the ".go-version" file at the root of this repository.
-go 1.25.0
+go 1.26.0
 
 replace github.com/google/go-containerregistry => ../../
 
@@ -55,9 +55,9 @@ require (
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	gotest.tools/v3 v3.1.0 // indirect
 )
