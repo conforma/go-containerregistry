@@ -172,7 +172,7 @@ func TestPingHttpFallback(t *testing.T) {
 	}{{
 		reg:       mustRegistry("gcr.io"),
 		wantCount: 1,
-		err:       `Get "https://gcr.io/v2/": http: server gave HTTP response to HTTPS client`,
+		err:       `Get "https://gcr.io/v2/": EOF`,
 	}, {
 		reg:       mustRegistry("ko.localhost"),
 		wantCount: 2,
