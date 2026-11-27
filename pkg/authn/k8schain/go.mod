@@ -5,7 +5,7 @@ module github.com/google/go-containerregistry/pkg/authn/k8schain
 // DO NOT change this version unless support for older Go versions is dropped
 // or the module requires newer Go features. To update the version used for CI
 // and releases, update the ".go-version" file at the root of this repository.
-go 1.26.0
+go 1.26.10
 
 replace (
 	github.com/google/go-containerregistry => ../../../
@@ -73,7 +73,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
